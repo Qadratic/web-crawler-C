@@ -32,6 +32,28 @@ struct node* initiate( char* url ){
 	return head;
 }
 
+void addLinks(struct node* head,int* depth){
+	depth--;
+	struct node* temp=head;
+	while(temp->next_node){ temp=temp->next_node; }
+	//if(temp){printf(temp->url);}
+	FILE* links=fopen("links.txt","r");
+	char* str=(char*)malloc(sizeof(char)*URL_LENGTH);
+	while(fgets(str,URL_LENGTH,links)){
+		*(str+strlen(str)-1)='\0';
+		temp->next_node=(struct node*)malloc( sizeof(struct node) );
+		temp=temp->next_node;
+		temp->url=(char*)malloc(sizeof(char)*URL_LENGTH);
+		strcpy( temp->url,str );
+	}
+	temp=head;
+	while(temp->next_node){
+		//printf(temp->url);
+		temp=temp->next_node;
+	}
+}
+
+
 //validate directory
 void testDir(char* dir){
 	struct stat file_info;
@@ -83,9 +105,7 @@ void copyTemp(char** dir,int file_no){
 	strcat(dir_main,"/");
 	strcat( dir_main,target );
 	strcat(dir_main,".html"); //creating directory to save file
-	printf("%s",dir_main);
-	//return;
-	
+	//printf("%s",dir_main);
 	//copying temp.txt to destination
 	FILE *src,*dest;
 	src=fopen("temp.txt","r");
@@ -120,22 +140,18 @@ int main(int argc,char* argv[]){
 	struct node *head=initiate( argv[2] ),*temp;
 	temp=head;
 	
-	while(depth--){
-		if(/*testUrl( temp->url )*/ 1){
-			//getWebPage( temp->url );
+	while(depth){
+		if(testUrl( temp->url )){
+			getWebPage( temp->url );
 			system("bash grephtml.sh");
 			char urls[URL_LENGTH]={0};
 			FILE *f1=fopen("links.txt","r");
-			while(fgets(urls,200,f1) != NULL){
-				printf("%s",urls);
-			}
+			addLinks(head,&depth);
 			//fclose(f1);
-			
-			//printf("%s",argv[1]);
 			copyTemp( &argv[1],s_no );
-			
-			
+			printf("file %d\n",s_no);
 			s_no++;
+			temp=temp->next_node;
 		}
 	}
 	
