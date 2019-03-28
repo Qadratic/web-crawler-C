@@ -11,19 +11,7 @@ struct node{
 	struct node* next_node;
 };
 
-//create a directory
-void makeDir(char* dir){
-	char str[]="mkdir ";
-	strcat(str,dir);
-	if( system(str) ==-1){
-		fprintf(stderr,"--|unable to create directory %s|--",dir);
-	}
-	else{
-		fprintf(stdout,"created directory \"%s\" successfully\n",dir);
-	}
-}
-
-//create entry point node
+//create and initiate head node
 struct node* initiate( char* url ){
 	struct node* head=(struct node*)malloc( sizeof(struct node) );
 	head->url = (char*)malloc(sizeof(char)*URL_LENGTH);
@@ -32,35 +20,43 @@ struct node* initiate( char* url ){
 	return head;
 }
 
+//read links from links.txt and add them to linked list
+//TODO: check if link is already visited before adding to LL
 void addLinks(struct node* head,int* depth){
-	depth--;
+	depth--; //not done yet with this thing
 	struct node* temp=head;
 	while(temp->next_node){ temp=temp->next_node; }
-	//if(temp){printf(temp->url);}
 	FILE* links=fopen("links.txt","r");
 	char* str=(char*)malloc(sizeof(char)*URL_LENGTH);
 	while(fgets(str,URL_LENGTH,links)){
-		*(str+strlen(str)-1)='\0';
+		*(str+strlen(str)-1)='\0'; //NULL append url string, overwrite new line character
 		temp->next_node=(struct node*)malloc( sizeof(struct node) );
 		temp=temp->next_node;
 		temp->url=(char*)malloc(sizeof(char)*URL_LENGTH);
 		strcpy( temp->url,str );
 	}
-	temp=head;
-	while(temp->next_node){
-		//printf(temp->url);
-		temp=temp->next_node;
+}
+
+//attempt to create a directory in case directory not found
+void makeDir(char* dir){
+	char str[]="mkdir ";
+	strcat(str,dir);
+	if( system(str) ==-1){ //TODO: fake test reconsider this
+		fprintf(stderr,"--|unable to create directory %s|--",dir);
+	}
+	else{
+		fprintf(stdout,"created directory \"%s\" successfully\n",dir);
 	}
 }
 
-
 //validate directory
+//TODO: refactor this funct
 void testDir(char* dir){
 	struct stat file_info;
 	//check for valid path
 	if( stat(dir,&file_info)==-1 ){
 		fprintf(stderr,"--| directory not found,attempting to create it |--\n");
-		makeDir(dir); //try to make the directory
+		makeDir(dir); //attempt to make the directory
 		stat(dir,&file_info); //check again for the directory created above
 	}
 	//check if path is a directory
@@ -89,7 +85,9 @@ int testUrl(char* url){
 	}
 }
 
+//dowload web page in temp.txt
 void getWebPage(char* url){
+	//construct system command
 	char url_buffer[URL_LENGTH+300]="wget -O temp.txt ";
 	strcat(url_buffer,url);
 	system(url_buffer);
@@ -99,24 +97,22 @@ void getWebPage(char* url){
 void copyTemp(char** dir,int file_no){
 	char target[10];
 	sprintf( target,"%d",file_no ); //convert file_no to string
-	char dir_main[50];
+	char dir_main[50]; //main destination file path
 	strcpy(dir_main,*dir);
 	
 	strcat(dir_main,"/");
 	strcat( dir_main,target );
-	strcat(dir_main,".html"); //creating directory to save file
-	//printf("%s",dir_main);
-	//copying temp.txt to destination
+	strcat(dir_main,".html"); //construct directory to save file
+	//copying temp.txt to destination file character by character
 	FILE *src,*dest;
 	src=fopen("temp.txt","r");
 	dest=fopen(dir_main,"w");
-	char *str=(char*)malloc(sizeof(char));
+	char *str=(char*)malloc(sizeof(char)); //create string of length=1, str[1] not working
 	char c;
 	while(c=fgetc(src)){
 		if(c==EOF){break;}
 		str[0]=c;
-		fprintf(dest,str);
-		//printf(str);
+		fprintf(dest,str); //shows warning can be ignored
 	}
 	free(str);
 	fclose(src);
@@ -128,20 +124,21 @@ int main(int argc,char* argv[]){
 		fprintf(stderr,"--| not enough arguments supplied |--\n");
 		exit(-1);
 	}
+	//validate directory
 	testDir( argv[1] );
 	
 	//validate URL
-	/*if(!testUrl( argv[2] )){
+	if(!testUrl( argv[2] )){
 		fprintf(stderr,"--| seed url not reachable |--\n");
 		exit(-1);
-	}*/
+	}
 	
 	int depth=1,s_no=0;
 	struct node *head=initiate( argv[2] ),*temp;
 	temp=head;
 	
 	while(depth){
-		if(testUrl( temp->url )){
+		//if(testUrl( temp->url )){ //no need to test other urls
 			getWebPage( temp->url );
 			system("bash grephtml.sh");
 			char urls[URL_LENGTH]={0};
@@ -152,7 +149,7 @@ int main(int argc,char* argv[]){
 			printf("file %d\n",s_no);
 			s_no++;
 			temp=temp->next_node;
-		}
+		//}
 	}
 	
 	return 0;
