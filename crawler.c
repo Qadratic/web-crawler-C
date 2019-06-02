@@ -5,11 +5,50 @@
 #include <string.h>
 
 #define URL_LENGTH 300
+#define TABLE_SIZE 128
 
 struct node{
 	char* url;
 	struct node* next_node;
 };
+struct bucket{
+	int key;
+	char* value;
+	struct bucket* next_bucket;
+};
+void addPair(struct bucket* table,int key,char* value){
+	//printf("adding %s to table\n",value);
+	int hash=key%TABLE_SIZE;
+	struct bucket* temp;
+	temp=(table+hash);
+	while(temp->next_bucket!=NULL ){
+		temp=temp->next_bucket;
+	}
+	temp->key=key;
+	temp->value=(char*)malloc( sizeof(char)*URL_LENGTH );
+	strcpy(temp->value,value);
+	temp->next_bucket=(struct bucket*)malloc( sizeof(struct bucket) );
+}
+char* getValue(struct bucket* table,int key){
+	int hash=key%TABLE_SIZE;
+	struct bucket* temp;
+	temp=(table+hash);
+	while(temp!=NULL){
+		if(temp->key==key){
+			return temp->value;
+		}
+		temp=temp->next_bucket;
+	}
+	return NULL;
+}
+
+int generateHash(char* str){
+	int sum=0,length=strlen(str);
+	for(int i=0;i<length;i++){
+		sum+=(str[i]*(i+1));
+	}
+	return sum;
+}
 
 //create and initiate head node
 struct node* initiate( char* url ){
@@ -20,21 +59,34 @@ struct node* initiate( char* url ){
 	return head;
 }
 
+int count=0;
 //read links from links.txt and add them to linked list
 //TODO: check if link is already visited before adding to LL
-void addLinks(struct node* head,int* depth){
-	depth--; //not done yet with this thing
+void addLinks(struct node* head,struct bucket* table){
+	//printf("adding links");
 	struct node* temp=head;
-	while(temp->next_node){ temp=temp->next_node; }
+	while(temp->next_node!=NULL){ temp=temp->next_node; }
 	FILE* links=fopen("links.txt","r");
 	char* str=(char*)malloc(sizeof(char)*URL_LENGTH);
 	while(fgets(str,URL_LENGTH,links)){
+		
+		//printf("%s",str);
+		int hash=generateHash(str);
+		if(getValue(table,hash)!=NULL){
+			//printf("found\n");
+		}else{
+			//printf("not found\n");
+			addPair(table,hash,str);
+		}
+		
+		count++;
 		*(str+strlen(str)-1)='\0'; //NULL append url string, overwrite new line character
 		temp->next_node=(struct node*)malloc( sizeof(struct node) );
 		temp=temp->next_node;
 		temp->url=(char*)malloc(sizeof(char)*URL_LENGTH);
 		strcpy( temp->url,str );
 	}
+	printf("total links- %d\n",count);
 }
 
 //attempt to create a directory in case directory not found
@@ -85,7 +137,7 @@ int testUrl(char* url){
 	}
 }
 
-//dowload web page in temp.txt
+//download web page in temp.txt
 void getWebPage(char* url){
 	//construct system command
 	char url_buffer[URL_LENGTH+300]="wget -O temp.txt ";
@@ -103,6 +155,7 @@ void copyTemp(char** dir,int file_no){
 	strcat(dir_main,"/");
 	strcat( dir_main,target );
 	strcat(dir_main,".html"); //construct directory to save file
+	
 	//copying temp.txt to destination file character by character
 	FILE *src,*dest;
 	src=fopen("temp.txt","r");
@@ -112,7 +165,7 @@ void copyTemp(char** dir,int file_no){
 	while(c=fgetc(src)){
 		if(c==EOF){break;}
 		str[0]=c;
-		fprintf(dest,str); //shows warning can be ignored
+		fprintf(dest,"%s",str);
 	}
 	free(str);
 	fclose(src);
@@ -133,23 +186,24 @@ int main(int argc,char* argv[]){
 		exit(-1);
 	}
 	
+	
 	int depth=1,s_no=0;
+	struct bucket* table=(struct bucket*)malloc( sizeof(struct bucket)*TABLE_SIZE );
+	addPair(table,generateHash(argv[2]),argv[2]);
 	struct node *head=initiate( argv[2] ),*temp;
 	temp=head;
 	
-	while(depth){
-		//if(testUrl( temp->url )){ //no need to test other urls
-			getWebPage( temp->url );
-			system("bash grephtml.sh");
+	while(1){
+			printf("downloading file %d\n",s_no);
+			getWebPage( temp->url ); //download web page
+			system("bash grephtml.sh"); //strip links
 			char urls[URL_LENGTH]={0};
-			FILE *f1=fopen("links.txt","r");
-			addLinks(head,&depth);
-			//fclose(f1);
-			copyTemp( &argv[1],s_no );
-			printf("file %d\n",s_no);
+			addLinks(head,table); //add links to linked list
+			printf("done adding urls\n");
+			//exit(0);
+			copyTemp( &argv[1],s_no ); //copy temp.txt to destination
 			s_no++;
 			temp=temp->next_node;
-		//}
 	}
 	
 	return 0;
