@@ -5,8 +5,6 @@ A Web crawler, sometimes called a spider or spiderbot and often shortened to cra
 
 This web crawler is coded in C language. It uses Wget linux command to download web pages.
 
-*frequent segmentation faults and stack smashing are to be fixed.*
-
 ## Compilation
 
 Wget command is required.
