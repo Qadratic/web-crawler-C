@@ -16,8 +16,8 @@ struct bucket{
 	char* value;
 	struct bucket* next_bucket;
 };
+
 void addPair(struct bucket* table,int key,char* value){
-	//printf("adding %s to table\n",value);
 	int hash=key%TABLE_SIZE;
 	struct bucket* temp;
 	temp=(table+hash);
@@ -41,7 +41,6 @@ char* getValue(struct bucket* table,int key){
 	}
 	return NULL;
 }
-
 int generateHash(char* str){
 	int sum=0,length=strlen(str);
 	for(int i=0;i<length;i++){
@@ -55,94 +54,92 @@ struct node* initiate( char* url ){
 	struct node* head=(struct node*)malloc( sizeof(struct node) );
 	head->url = (char*)malloc(sizeof(char)*URL_LENGTH);
 	strcpy( head->url,url );
-	
 	return head;
 }
 
 int count=0;
+
 //read links from links.txt and add them to linked list
-//TODO: check if link is already visited before adding to LL
 void addLinks(struct node* head,struct bucket* table){
-	//printf("adding links");
-	struct node* temp=head;
+	struct node *temp=head,*new_node;
 	while(temp->next_node!=NULL){ temp=temp->next_node; }
 	FILE* links=fopen("links.txt","r");
 	char* str=(char*)malloc(sizeof(char)*URL_LENGTH);
 	while(fgets(str,URL_LENGTH,links)){
-		
-		//printf("%s",str);
 		int hash=generateHash(str);
 		if(getValue(table,hash)!=NULL){
-			//printf("found\n");
 		}else{
-			//printf("not found\n");
 			addPair(table,hash,str);
 		}
 		
 		count++;
 		*(str+strlen(str)-1)='\0'; //NULL append url string, overwrite new line character
-		temp->next_node=(struct node*)malloc( sizeof(struct node) );
-		temp=temp->next_node;
-		temp->url=(char*)malloc(sizeof(char)*URL_LENGTH);
-		strcpy( temp->url,str );
+		
+		new_node=(struct node*)malloc( sizeof(struct node) );
+		new_node->url=(char*)malloc(sizeof(char)*URL_LENGTH);
+		strcpy( new_node->url,str );
+		temp->next_node=new_node;
 	}
 	printf("total links- %d\n",count);
 }
 
 //attempt to create a directory in case directory not found
-void makeDir(char* dir){
-	char str[]="mkdir ";
-	strcat(str,dir);
-	if( system(str) ==-1){ //TODO: fake test reconsider this
-		fprintf(stderr,"--|unable to create directory %s|--",dir);
+int makeDir(char* dir){
+	if( mkdir(dir,0777) == -1 ){
+		fprintf(stderr,"--| failed to create directory |--\n");
+		return -1;
+	}else{
+		fprintf(stdout,"--| directory created successfully |--\n");
 	}
-	else{
-		fprintf(stdout,"created directory \"%s\" successfully\n",dir);
-	}
+	return 0;
 }
 
 //validate directory
-//TODO: refactor this funct
-void testDir(char* dir){
+int testDir(char* dir){
 	struct stat file_info;
 	//check for valid path
-	if( stat(dir,&file_info)==-1 ){
-		fprintf(stderr,"--| directory not found,attempting to create it |--\n");
-		makeDir(dir); //attempt to make the directory
-		stat(dir,&file_info); //check again for the directory created above
+	if( stat(dir,&file_info)== -1 ){
+		fprintf(stderr,"--| directory not found, attempting to create it |--\n");
+		//attempt to make the directory
+		if( makeDir(dir) == -1){
+			return -1;
+		}
+		//check again for the new directory created above
+		stat(dir,&file_info);
 	}
 	//check if path is a directory
-	if( !S_ISDIR( file_info.st_mode ) ){
+	else if( !S_ISDIR( file_info.st_mode ) ){
 		fprintf(stderr,"--| given path is not a directory |--\n");
-		exit(-1);
+		return -1;
 	}
 	//check for read/write permissions on directory
 	if( file_info.st_mode & S_IWUSR != S_IWUSR){
 		fprintf(stderr,"--| access denied in \"%s\" |--\n",dir);
-		exit(-1);
+		return -1;
 	}
 	fprintf(stdout,"--| directory validated |--\n");
+	return 0;
 }
 
 int testUrl(char* url){
-	char command[URL_LENGTH]="wget --spider ";
-	strcat(command,url);
-	if( system(command) ){
+	char wget_command[URL_LENGTH]="wget --spider ";
+	strcat(wget_command,url);
+	if( system(wget_command) ){
 		fprintf(stderr,"--| url \"%s\" not reachable |--\n",url);
-		return 0;
+		return -1;
 	}
 	else{
 		fprintf(stdout,"--| URL validated successfully |--\n");
-		return 1;
+		return 0;
 	}
 }
 
 //download web page in temp.txt
 void getWebPage(char* url){
 	//construct system command
-	char url_buffer[URL_LENGTH+300]="wget -O temp.txt ";
-	strcat(url_buffer,url);
-	system(url_buffer);
+	char wget_command[URL_LENGTH+300]="wget -O temp.txt ";
+	strcat(wget_command,url);
+	system(wget_command);
 }
 
 //copy temp.txt from here to directory defined by usr
@@ -178,11 +175,11 @@ int main(int argc,char* argv[]){
 		exit(-1);
 	}
 	//validate directory
-	//testDir( argv[1] );
-	
+	if( testDir( argv[1] ) == -1 ){
+		exit(-1);
+	}
 	//validate URL
-	if(!testUrl( argv[2] )){
-		fprintf(stderr,"--| seed url not reachable |--\n");
+	if( testUrl( argv[2] ) == -1){
 		exit(-1);
 	}
 	
@@ -200,7 +197,6 @@ int main(int argc,char* argv[]){
 			char urls[URL_LENGTH]={0};
 			addLinks(head,table); //add links to linked list
 			printf("done adding urls\n");
-			//exit(0);
 			copyTemp( &argv[1],s_no ); //copy temp.txt to destination
 			s_no++;
 			temp=temp->next_node;
