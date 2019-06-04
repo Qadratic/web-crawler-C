@@ -9,6 +9,7 @@
 
 struct node{
 	char* url;
+	int depth;
 	struct node* next_node;
 };
 struct bucket{
@@ -50,19 +51,24 @@ int generateHash(char* str){
 }
 
 //create and initiate head node
-struct node* initiate( char* url ){
+struct node* initiate( char* url ,int depth){
 	struct node* head=(struct node*)malloc( sizeof(struct node) );
 	head->url = (char*)malloc(sizeof(char)*URL_LENGTH);
 	strcpy( head->url,url );
+	head->depth=depth;
 	return head;
 }
 
 int count=0;
 
 //read links from links.txt and add them to linked list
-void addLinks(struct node* head,struct bucket* table){
+void addLinks(struct node* head,struct bucket* table,int depth){
+	if(depth<1){return;}
 	struct node *temp=head,*new_node;
-	while(temp->next_node!=NULL){ temp=temp->next_node; }
+	while(temp->next_node!=NULL){
+		printf("url in LL-%s\n",temp->url);
+		temp=temp->next_node;
+	}
 	FILE* links=fopen("links.txt","r");
 	char* str=(char*)malloc(sizeof(char)*URL_LENGTH);
 	while(fgets(str,URL_LENGTH,links)){
@@ -72,15 +78,17 @@ void addLinks(struct node* head,struct bucket* table){
 			addPair(table,hash,str);
 		}
 		
+		//printf("adding %s\n",str);
 		count++;
 		*(str+strlen(str)-1)='\0'; //NULL append url string, overwrite new line character
 		
 		new_node=(struct node*)malloc( sizeof(struct node) );
 		new_node->url=(char*)malloc(sizeof(char)*URL_LENGTH);
 		strcpy( new_node->url,str );
+		new_node->depth=depth;
 		temp->next_node=new_node;
+		temp=temp->next_node;
 	}
-	printf("total links- %d\n",count);
 }
 
 //attempt to create a directory in case directory not found
@@ -170,7 +178,7 @@ void copyTemp(char** dir,int file_no){
 }
 
 int main(int argc,char* argv[]){
-	if( argc<3 ){
+	if( argc<4 ){
 		fprintf(stderr,"--| not enough arguments supplied |--\n");
 		exit(-1);
 	}
@@ -184,22 +192,23 @@ int main(int argc,char* argv[]){
 	}
 	
 	
-	int depth=1,s_no=0;
+	int depth=atoi( argv[3] );
+	int s_no=0;
 	struct bucket* table=(struct bucket*)malloc( sizeof(struct bucket)*TABLE_SIZE );
 	addPair(table,generateHash(argv[2]),argv[2]);
-	struct node *head=initiate( argv[2] ),*temp;
+	struct node *head=initiate( argv[2] ,depth),*temp;
 	temp=head;
 	
-	while(1){
+	while(temp->depth && temp!=NULL){
 			printf("downloading file %d\n",s_no);
 			getWebPage( temp->url ); //download web page
 			system("bash grephtml.sh"); //strip links
 			char urls[URL_LENGTH]={0};
-			addLinks(head,table); //add links to linked list
-			printf("done adding urls\n");
+			addLinks(head,table,temp->depth-1); //add links to linked list
 			copyTemp( &argv[1],s_no ); //copy temp.txt to destination
 			s_no++;
 			temp=temp->next_node;
+			printf("total links- %d\n",count);
 	}
 	
 	return 0;
