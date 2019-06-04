@@ -178,7 +178,7 @@ int main(int argc,char* argv[]){
 		exit(-1);
 	}
 	//validate directory
-	testDir( argv[1] );
+	//testDir( argv[1] );
 	
 	//validate URL
 	if(!testUrl( argv[2] )){
