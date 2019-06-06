@@ -18,7 +18,7 @@ gcc crawler.c -o crawler
 ## Usage
 
 ```bash
-./crawler <directory name> <seed URL>
+./crawler <directory name> <seed URL> <depth>
 ```
 
 ## Contributing
